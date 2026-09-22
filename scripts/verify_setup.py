@@ -1,4 +1,5 @@
 """Proves every piece of infrastructure works.  uv run python scripts/verify_setup.py"""
+
 import sys
 import time
 
@@ -21,6 +22,7 @@ def check_postgres():
     step(1, "Postgres + pgvector")
     try:
         from sqlalchemy import create_engine, text
+
         eng = create_engine(settings.postgres_url)
         with eng.connect() as c:
             print("  ok ", c.execute(text("SELECT version()")).scalar().split(",")[0])
@@ -39,6 +41,7 @@ def check_mongo():
     step(2, "MongoDB")
     try:
         from pymongo import MongoClient
+
         cl = MongoClient(settings.mongo_url, serverSelectionTimeoutMS=3000)
         print("  ok  MongoDB", cl.server_info()["version"])
         col = cl[settings.mongo_db].raw_documents
@@ -55,6 +58,7 @@ def check_redis():
     step(3, "Redis")
     try:
         import redis
+
         r = redis.from_url(settings.redis_url, decode_responses=True)
         r.ping()
         r.setex("_v", 10, "hi")
@@ -70,6 +74,7 @@ def check_embeddings():
     step(4, "Embeddings")
     try:
         from sentence_transformers import SentenceTransformer
+
         t = time.time()
         m = SentenceTransformer(settings.embedding_model)
         print(f"  ok  model loaded in {time.time() - t:.1f}s")
@@ -91,16 +96,18 @@ def check_vector_search(m, v):
         return False
     try:
         from sqlalchemy import create_engine, text
+
         eng = create_engine(settings.postgres_url)
         with eng.connect() as c:
             c.execute(text("DROP TABLE IF EXISTS _vt"))
             c.execute(text(f"CREATE TABLE _vt (label TEXT, emb vector({settings.embedding_dim}))"))
-            for s, e in zip(SENTENCES, v):
+            for s, e in zip(SENTENCES, v, strict=True):
                 c.execute(text("INSERT INTO _vt VALUES (:l, :e)"), {"l": s, "e": str(e.tolist())})
             q = m.encode("What are the customer verification rules?", normalize_embeddings=True)
-            rows = c.execute(text(
-                "SELECT label, 1 - (emb <=> :q) FROM _vt ORDER BY emb <=> :q LIMIT 3"),
-                {"q": str(q.tolist())}).fetchall()
+            rows = c.execute(
+                text("SELECT label, 1 - (emb <=> :q) FROM _vt ORDER BY emb <=> :q LIMIT 3"),
+                {"q": str(q.tolist())},
+            ).fetchall()
             print("  QUERY: 'What are the customer verification rules?'")
             for i, (lbl, s) in enumerate(rows, 1):
                 print(f"   {i}. {s:.3f}  {lbl}")
@@ -119,11 +126,13 @@ def check_llm():
         return False
     try:
         from groq import Groq
+
         t = time.time()
-        r = Groq(api_key=settings.groq_api_key).chat.completions.create(
+        r = Groq(api_key=settings.groq_api_key.get_secret_value()).chat.completions.create(
             model=settings.groq_model,
             messages=[{"role": "user", "content": "Reply with exactly: SETUP OK"}],
-            max_tokens=10)
+            max_tokens=10,
+        )
         print(f"  ok  {r.choices[0].message.content.strip()!r} in {(time.time() - t) * 1000:.0f}ms")
         return True
     except Exception as e:
