@@ -1,0 +1,68 @@
+services:
+  pg:
+    image: pgvector/pgvector:pg16
+    container_name: rag-pg
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: ragpass
+      POSTGRES_DB: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    command: postgres -c shared_buffers=128MB -c max_connections=50
+
+  mongo:
+    image: mongo:7
+    container_name: rag-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rag
+      MONGO_INITDB_ROOT_PASSWORD: ragpass
+      MONGO_INITDB_DATABASE: rag
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.25"]
+
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru --appendonly yes
+
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:
