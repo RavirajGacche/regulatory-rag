@@ -33,8 +33,16 @@ regulatory-rag = "regulatory_rag:main"
 requires = ["uv_build>=0.12.10,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["app", "services", "shared"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
