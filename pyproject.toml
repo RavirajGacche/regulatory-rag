@@ -33,9 +33,37 @@ regulatory-rag = "regulatory_rag:main"
 requires = ["uv_build>=0.12.10,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["app", "services", "shared"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
+    "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
 ]
+
+[tool.ruff]
+# line-length = 110 -> Max characters per line
+line-length = 110
+
+[tool.ruff.lint]
+# E -> PEP8 style errors
+# F -> Real bugs: unused imports, undefined names
+# I -> sort imports automatically 
+# UP -> Upgrades old syntax (List[int] -> list[int], PEP585) 
+# B -> Comman bug patterns, like def f(x=[])
+
+select = ["E", "F", "I", "UP", "B"]
+
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]   #Teaches mypy how pydantic models work
+ignore_missing_imports = true  #Don't fail on libraries that ship without type hints
+disallow_untyped_defs = true #Every function must have type hints
