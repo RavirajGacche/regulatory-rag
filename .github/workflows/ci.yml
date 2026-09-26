@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, prod]
+  pull_request:
+    branches: [dev, prod]
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, types and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with: 
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy app/ services/ shared/
+
+      - name: Run tests
+        run: uv run pytest -q
+        env:
+          PG_PASSWORD: ci-not-a-real-password
+          MONGO_PASSWORD: ci-not-a-real-password
+          GROQ_API_KEY: ci-not-a-real-key
+          JWT_SECRET: ci-not-a-real-secret
+
+  boundaries:
+    name: Service boundary check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No cross-service imports
+        run: |
+          if grep -rnE "^from services\.(auth|document|indexing|query)" \
+               services/ --include="*.py" \
+             | grep -vE "^services/([a-z]+)/.*:from services\.\1"; then
+            echo "Cross-service import found. Services may only import shared/."
+            exit 1
+          fi
+          echo "Boundaries OK"
