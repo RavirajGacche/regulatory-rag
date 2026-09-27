@@ -35,8 +35,8 @@ class Chunk:
     """A piece of a document, before or after embedding"""
 
     content: str
-    chunk_index: str
-    token_count: str
+    chunk_index: int
+    token_count: int
     document_id: str | None = None
     embedding: list[float] | None = None
 

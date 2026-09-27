@@ -68,3 +68,4 @@ select = ["E", "F", "I", "UP", "B"]
 plugins = ["pydantic.mypy"]   #Teaches mypy how pydantic models work
 ignore_missing_imports = true  #Don't fail on libraries that ship without type hints
 disallow_untyped_defs = true #Every function must have type hints
+files=["app", "services", "shared", "tests"]
