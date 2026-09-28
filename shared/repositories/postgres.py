@@ -1,6 +1,8 @@
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from shared.db.models import Document as DocumentRow
@@ -65,4 +67,37 @@ class PostgresDocumentRegistory:
         return [_to_domain(row) for row in self._session.scalars(stmt)]
 
     def save(self, document: Document) -> Document:
-        raise NotImplementedError("S12: upsert with on Conflict")
+
+        values = {
+            "id": UUID(document.id) if document.id else uuid4(),
+            "tenant_id": UUID(document.tenant_id),
+            "source": document.source,
+            "source_url": document.source_url,
+            "title": document.title,
+            "circular_number": document.circular_number,
+            "published_on": document.published_on,
+            "content_hash": document.content_hash,
+            "extraction_method": str(document.extraction_method),
+            "version": document.version,
+            "is_current": document.is_current,
+            "valid_from": document.valid_from or datetime.now(UTC),
+        }
+
+        stmt = (
+            pg_insert(DocumentRow)
+            .values(**values)
+            .on_conflict_do_nothing(constraint="uq_doc_tenant_content_hash")
+            .returning(DocumentRow.id)
+        )
+
+        inserted_id = self._session.scalars(stmt).one_or_none()
+        self._session.commit()
+
+        if inserted_id is None:
+            existing = self.get_by_content_hash(document.tenant_id, document.content_hash)
+            if existing is None:
+                raise RuntimeError("Conflict reported but no existing row found")
+            return existing
+
+        document.id = str(inserted_id)
+        return document

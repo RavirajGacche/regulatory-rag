@@ -39,6 +39,7 @@ module-name = ["app", "services", "shared"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+markers = ["integration: needs a running database"]
 
 [dependency-groups]
 dev = [
